@@ -1,66 +1,74 @@
-"""Foydalanuvchi sozlamalari (JSON faylda) va so'nggi transkripsiyalar (xotirada)."""
-import json
-import logging
+"""SQLite: foydalanuvchi sozlamalari va transkripsiyalar (bot qayta ishga tushganda ham tugmalar ishlaydi)."""
 import secrets
-from collections import OrderedDict
-from dataclasses import dataclass
+import sqlite3
+import time
 from pathlib import Path
 
-from .stt import Transcript
+from .models import Transcript
 
-log = logging.getLogger(__name__)
-
-
-class UserSettings:
-    def __init__(self, path: Path, default_voice: str):
-        self.path = path
-        self.default_voice = default_voice
-        self._data: dict[str, str] = {}
-        try:
-            self._data = json.loads(path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            pass
-        except (OSError, ValueError):
-            log.warning("%s faylini o'qib bo'lmadi, yangidan boshlanadi", path)
-
-    def voice(self, user_id: int) -> str:
-        return self._data.get(str(user_id), self.default_voice)
-
-    def set_voice(self, user_id: int, voice: str) -> None:
-        self._data[str(user_id)] = voice
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._data, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(self.path)
+TRANSCRIPT_TTL_DAYS = 30
 
 
-@dataclass
-class CachedTranscript:
-    transcript: Transcript
-    duration: float
-    summary: str | None = None
+class Storage:
+    def __init__(self, path: Path, default_gender: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.default_gender = default_gender
+        self.db = sqlite3.connect(path, check_same_thread=False)
+        self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                gender  TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS transcripts (
+                token   TEXT PRIMARY KEY,
+                user_id INTEGER,
+                created INTEGER NOT NULL,
+                data    TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS transcripts_created ON transcripts(created);
+            """
+        )
+        self.prune()
 
-    @property
-    def text(self) -> str:
-        return " ".join(s.text.strip() for s in self.transcript.segments if s.text.strip())
+    # --- foydalanuvchi sozlamalari ---
 
+    def gender(self, user_id: int) -> str:
+        row = self.db.execute("SELECT gender FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        return row[0] if row else self.default_gender
 
-class TranscriptCache:
-    """Tugmalar (konspekt / ovozga) uchun so'nggi transkripsiyalarni saqlaydi."""
+    def set_gender(self, user_id: int, gender: str) -> None:
+        with self.db:
+            self.db.execute(
+                "INSERT INTO users(user_id, gender) VALUES (?, ?) "
+                "ON CONFLICT(user_id) DO UPDATE SET gender = excluded.gender",
+                (user_id, gender),
+            )
 
-    def __init__(self, max_items: int = 1000):
-        self.max_items = max_items
-        self._items: OrderedDict[str, CachedTranscript] = OrderedDict()
+    # --- transkripsiyalar ---
 
-    def put(self, item: CachedTranscript) -> str:
+    def save_transcript(self, user_id: int, transcript: Transcript) -> str:
         token = secrets.token_urlsafe(8)
-        self._items[token] = item
-        while len(self._items) > self.max_items:
-            self._items.popitem(last=False)
+        with self.db:
+            self.db.execute(
+                "INSERT INTO transcripts(token, user_id, created, data) VALUES (?, ?, ?, ?)",
+                (token, user_id, int(time.time()), transcript.model_dump_json()),
+            )
         return token
 
-    def get(self, token: str) -> CachedTranscript | None:
-        item = self._items.get(token)
-        if item is not None:
-            self._items.move_to_end(token)
-        return item
+    def get_transcript(self, token: str) -> Transcript | None:
+        row = self.db.execute("SELECT data FROM transcripts WHERE token = ?", (token,)).fetchone()
+        return Transcript.model_validate_json(row[0]) if row else None
+
+    def update_transcript(self, token: str, transcript: Transcript) -> None:
+        with self.db:
+            self.db.execute(
+                "UPDATE transcripts SET data = ? WHERE token = ?",
+                (transcript.model_dump_json(), token),
+            )
+
+    def prune(self) -> None:
+        cutoff = int(time.time()) - TRANSCRIPT_TTL_DAYS * 86400
+        with self.db:
+            self.db.execute("DELETE FROM transcripts WHERE created < ?", (cutoff,))

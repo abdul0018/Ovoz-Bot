@@ -22,8 +22,10 @@ async def _ffmpeg(*args: str) -> None:
 
 
 async def to_speech_mp3(src: Path, dst: Path) -> None:
-    """Har qanday audio/video ni nutq uchun yengil mono mp3 ga aylantiradi."""
+    """Har qanday audio/video ni nutq uchun yengil mono mp3 ga aylantiradi (16 kHz, 32 kbit/s)."""
     await _ffmpeg("-i", str(src), "-vn", "-ac", "1", "-ar", "16000", "-b:a", "32k", str(dst))
+    if not dst.exists() or dst.stat().st_size == 0:
+        raise MediaError("faylda audio yo'q")
 
 
 async def to_voice_ogg(src: Path, dst: Path) -> None:
@@ -45,8 +47,11 @@ async def duration_seconds(path: Path) -> float:
         return 0.0
 
 
-def format_duration(seconds: float) -> str:
-    total = int(round(seconds))
-    h, rem = divmod(total, 3600)
-    m, s = divmod(rem, 60)
-    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+async def split_audio(src: Path, out_dir: Path, chunk_seconds: int) -> list[Path]:
+    """Audioni taxminan chunk_seconds uzunlikdagi bo'laklarga ajratadi (qayta kodlashsiz)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    await _ffmpeg(
+        "-i", str(src), "-f", "segment", "-segment_time", str(chunk_seconds),
+        "-reset_timestamps", "1", "-c", "copy", str(out_dir / "chunk_%04d.mp3"),
+    )
+    return sorted(out_dir.glob("chunk_*.mp3"))
