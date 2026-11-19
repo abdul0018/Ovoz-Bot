@@ -1,0 +1,19 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: ovoz-bot
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /health
+    branch: main
+    autoDeploy: true
+    envVars:
+      - key: BOT_TOKEN
+        sync: false          # Render sizdan so'raydi: @BotFather tokeni
+      - key: GEMINI_API_KEY
+        sync: false          # Render sizdan so'raydi: aistudio.google.com/apikey
+      - key: MAX_CONCURRENT_JOBS
+        value: "2"           # bepul tarif: 0.1 CPU / 512 MB
+      - key: MAX_AUDIO_MINUTES
+        value: "120"

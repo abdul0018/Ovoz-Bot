@@ -29,12 +29,28 @@ Hech qanday buyruq shart emas — bot xabar turini o'zi aniqlaydi.
 | Matn → ovoz | Microsoft Edge neyron ovozlari (`edge-tts`) | bepul, kalit kerak emas |
 | Ovozlar | 🇺🇿 Madina / Sardor · 🇷🇺 Svetlana / Dmitry · 🇬🇧 Ava / Andrew | |
 
-## 1. Kalitlarni olish
+## 🚀 Bepul serverga joylash (Render) — 5 daqiqa
 
-1. **Bot tokeni:** Telegramda [@BotFather](https://t.me/BotFather) → `/newbot` → nom va username kiriting → token beriladi.
-2. **Gemini kaliti:** [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → *Create API key*.
+**1. Bot tokenini oling.** Telegramda [@BotFather](https://t.me/BotFather) → `/newbot` → bot nomini va username'ini (oxiri `bot` bilan tugashi kerak) yozing → bergan tokenni nusxalang (`123456789:AA...` ko'rinishida).
 
-## 2. Kompyuterda ishga tushirish
+**2. Gemini kalitini oling.** [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → Google akkaunt bilan kiring → **Create API key** → kalitni nusxalang (`AIza...` ko'rinishida).
+
+**3. Render'ga joylang.** Quyidagi tugmani bosing:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/abdul0018/Ovoz-Bot/tree/main)
+
+- GitHub akkauntingiz bilan ro'yxatdan o'ting (karta talab qilinmaydi).
+- Ochilgan sahifada `BOT_TOKEN` va `GEMINI_API_KEY` maydonlariga 1- va 2-qadamdagi qiymatlarni joylang.
+- **Deploy Blueprint** (yoki **Apply**) tugmasini bosing.
+
+3-5 daqiqadan keyin loglarda `Bot webhook rejimida ishga tushdi` yozuvi chiqadi — botingizga Telegramda `/start` yozing. ✅
+
+`main` branchga har bir yangi o'zgarish Render'da avtomatik qayta joylanadi.
+
+> **Bepul tarif haqida.** 15 daqiqa xabar kelmasa, server uxlaydi; keyingi birinchi xabarga javob 30-60 soniya kechikadi, so'ng odatdagidek tez ishlaydi. Uxlab qolganda eski xabarlardagi tugmalar ishlamasligi mumkin — audioni qayta yuborish kifoya.
+> Uxlamasligi uchun (ixtiyoriy): [UptimeRobot](https://uptimerobot.com) da bepul monitor qo'shing — `https://<servis-nomingiz>.onrender.com/health` manzilini har 5 daqiqada tekshirsin.
+
+## 💻 Kompyuterda ishga tushirish
 
 Kerak: Python 3.10+ va [ffmpeg](https://ffmpeg.org/download.html) (Windows: `winget install ffmpeg`, macOS: `brew install ffmpeg`, Ubuntu: `sudo apt install ffmpeg`).
 
@@ -60,7 +76,7 @@ cp .env.example .env
 python bot.py
 ```
 
-## 3. Serverda doimiy ishlatish (Docker)
+## 🐳 O'z serveringizda (Docker)
 
 ```bash
 docker compose up -d --build
@@ -72,7 +88,7 @@ Loglarni ko'rish:
 docker compose logs -f
 ```
 
-Railway, Render, Fly.io kabi xizmatlarga ham `Dockerfile` orqali joylash mumkin — `BOT_TOKEN` va `GEMINI_API_KEY` ni u yerdagi *Variables* bo'limiga kiriting. Ma'lumotlar bazasi `data/` papkasida saqlanadi — uni doimiy diskka (volume) ulang.
+Bot `WEBHOOK_URL` berilmasa polling rejimida ishlaydi (ochiq port shart emas). `WEBHOOK_URL` (yoki Render'dagi `RENDER_EXTERNAL_URL`) berilsa — webhook rejimida, `PORT` portida.
 
 ## Sozlamalar (`.env`)
 
@@ -85,6 +101,8 @@ Railway, Render, Fly.io kabi xizmatlarga ham `Dockerfile` orqali joylash mumkin 
 | `MAX_AUDIO_MINUTES` | `180` | Bundan uzun audio rad etiladi (xarajat nazorati) |
 | `MAX_CONCURRENT_JOBS` | `4` | Bir vaqtda qayta ishlanadigan audio soni, qolganlari navbatda |
 | `DATA_DIR` | `data` | SQLite bazasi papkasi |
+| `WEBHOOK_URL` | — | Tashqi manzil (masalan `https://bot.example.com`) — webhook rejimini yoqadi. Render'da avtomatik |
+| `PORT` | `8080` | Webhook rejimida HTTP port |
 | `TELEGRAM_API_SERVER` | — | O'z [Bot API serveringiz](https://github.com/tdlib/telegram-bot-api) manzili |
 
 ## Cheklovlar va ularni hal qilish

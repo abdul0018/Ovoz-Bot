@@ -103,7 +103,7 @@ def make_env(tmp_path, audio, ai):
         root._parent_router = None
     dp = Dispatcher()
     dp.include_router(root)
-    cfg = Config("t", "k", "m", "female", tmp_path, 180, 2, None)
+    cfg = Config("t", "k", "m", "female", tmp_path, 180, 2, None, None, 8080)
     kw = dict(ai=ai, storage=Storage(tmp_path / "bot.db", "female"), config=cfg,
               job_slots=asyncio.Semaphore(2), max_file_mb=20)
 

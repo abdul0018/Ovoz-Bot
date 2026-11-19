@@ -23,6 +23,8 @@ class Config:
     max_audio_minutes: int       # bundan uzun audio rad etiladi (xarajatni cheklash)
     max_concurrent_jobs: int     # bir vaqtda qayta ishlanadigan audio soni
     local_api_server: str | None # o'zingizning Telegram Bot API serveringiz (2 GB gacha fayllar)
+    webhook_url: str | None      # berilsa — webhook rejimi (Render va h.k.), aks holda polling
+    port: int                    # webhook rejimida HTTP port
 
 
 def load_config() -> Config:
@@ -40,4 +42,8 @@ def load_config() -> Config:
         max_audio_minutes=_int("MAX_AUDIO_MINUTES", 180),
         max_concurrent_jobs=max(1, _int("MAX_CONCURRENT_JOBS", 4)),
         local_api_server=os.getenv("TELEGRAM_API_SERVER", "").strip() or None,
+        # Render web-servislarga RENDER_EXTERNAL_URL ni o'zi beradi
+        webhook_url=(os.getenv("WEBHOOK_URL", "").strip() or os.getenv("RENDER_EXTERNAL_URL", "").strip()
+                     or None),
+        port=_int("PORT", 8080),
     )
